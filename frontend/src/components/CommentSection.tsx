@@ -12,8 +12,10 @@ const CommentItem: React.FC<{
     comment: Comment;
     allComments: Comment[];
     onReply: (parentId: string, content: string) => void;
+    onDelete: (commentId: string) => void;
+    onPin: (commentId: string) => void;
     currentUserRole: UserRole | undefined;
-}> = ({ comment, allComments, onReply, currentUserRole }) => {
+}> = ({ comment, allComments, onReply, onDelete, onPin, currentUserRole }) => {
     const [isReplying, setIsReplying] = useState(false);
     const [replyContent, setReplyContent] = useState('');
 
@@ -28,7 +30,7 @@ const CommentItem: React.FC<{
     };
 
     return (
-        <div className="mb-4">
+        <div className={`mb-4 ${comment.isPinned ? 'bg-hnk-green/10 -mx-4 px-4 py-4 rounded-xl border border-hnk-green/20' : ''}`}>
             <div className="flex gap-4">
                 <div className={`mt-1 flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center ${comment.role === 'lt' ? 'bg-hnk-green' : 'bg-white/10'}`}>
                     {comment.role === 'lt' ? <Shield className="w-4 h-4 text-white" /> : <UserIcon className="w-4 h-4 text-white/50" />}
@@ -38,6 +40,11 @@ const CommentItem: React.FC<{
                         <span className={`font-semibold ${comment.role === 'lt' ? 'text-hnk-green' : 'text-white/90'}`}>
                             {comment.author}
                         </span>
+                        {comment.isPinned && (
+                            <span className="text-xs font-bold bg-hnk-green text-white px-2 py-0.5 rounded-full flex items-center gap-1">
+                                Pinned
+                            </span>
+                        )}
                         <span className="text-xs text-white/30 ml-auto">
                             {new Date(comment.createdAt).toLocaleDateString()}
                         </span>
@@ -46,14 +53,36 @@ const CommentItem: React.FC<{
                         {comment.content}
                     </div>
 
-                    {/* Reply Button */}
-                    <button
-                        onClick={() => setIsReplying(!isReplying)}
-                        className="text-xs text-white/40 hover:text-white flex items-center gap-1 transition-colors"
-                    >
-                        <MessageCircle className="w-3 h-3" />
-                        Reply
-                    </button>
+                    <div className="flex items-center gap-4">
+                        {/* Reply Button */}
+                        <button
+                            onClick={() => setIsReplying(!isReplying)}
+                            className="text-xs text-white/40 hover:text-white flex items-center gap-1 transition-colors"
+                        >
+                            <MessageCircle className="w-3 h-3" />
+                            Reply
+                        </button>
+
+                        {/* LT Actions */}
+                        {currentUserRole === 'lt' && (
+                            <>
+                                <button
+                                    onClick={() => onPin(comment.id)}
+                                    className={`text-xs flex items-center gap-1 transition-colors ${comment.isPinned ? 'text-hnk-green' : 'text-white/40 hover:text-white'}`}
+                                >
+                                    {comment.isPinned ? 'Unpin' : 'Pin'}
+                                </button>
+                                <button
+                                    onClick={() => {
+                                        if (window.confirm('Delete this comment?')) onDelete(comment.id);
+                                    }}
+                                    className="text-xs text-red-500/60 hover:text-red-500 flex items-center gap-1 transition-colors"
+                                >
+                                    Delete
+                                </button>
+                            </>
+                        )}
+                    </div>
 
                     {/* Reply Form */}
                     {isReplying && (
@@ -87,6 +116,8 @@ const CommentItem: React.FC<{
                             comment={child}
                             allComments={allComments}
                             onReply={onReply}
+                            onDelete={onDelete}
+                            onPin={onPin}
                             currentUserRole={currentUserRole}
                         />
                     ))}
@@ -112,6 +143,16 @@ const CommentSection: React.FC<CommentSectionProps> = ({ threadId }) => {
         setComments([...comments, addedComment]);
     };
 
+    const handleDeleteComment = (commentId: string) => {
+        storage.deleteComment(commentId);
+        setComments(storage.getComments(threadId)); // Reload from storage to reflect tree changes
+    };
+
+    const handlePinComment = (commentId: string) => {
+        storage.pinComment(threadId, commentId);
+        setComments(storage.getComments(threadId));
+    };
+
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
         if (!newComment.trim()) return;
@@ -119,8 +160,15 @@ const CommentSection: React.FC<CommentSectionProps> = ({ threadId }) => {
         setNewComment('');
     };
 
-    // Filter top-level comments
-    const rootComments = comments.filter(c => !c.parentId).sort((a, b) => b.createdAt - a.createdAt);
+    // Filter top-level comments and sorting
+    // Pinned first, then by date
+    const rootComments = comments
+        .filter(c => !c.parentId)
+        .sort((a, b) => {
+            if (a.isPinned && !b.isPinned) return -1;
+            if (!a.isPinned && b.isPinned) return 1;
+            return b.createdAt - a.createdAt;
+        });
 
     return (
         <div className="mt-8 border-t border-white/10 pt-8">
@@ -139,6 +187,8 @@ const CommentSection: React.FC<CommentSectionProps> = ({ threadId }) => {
                             comment={comment}
                             allComments={comments}
                             onReply={(parentId, content) => handleAddComment(content, parentId)}
+                            onDelete={handleDeleteComment}
+                            onPin={handlePinComment}
                             currentUserRole={currentUser?.role}
                         />
                     ))

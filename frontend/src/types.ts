@@ -15,6 +15,7 @@ export interface Comment {
     role: UserRole; // To display (LT) tag
     createdAt: number;
     parentId?: string;
+    isPinned?: boolean;
 }
 
 export interface Thread {
@@ -22,6 +23,7 @@ export interface Thread {
     title: string;
     content: string;
     author: string; // 'Anonymous' or similar for now
+    role?: UserRole;
     createdAt: number;
     commentsCount: number;
 }

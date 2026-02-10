@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useParams, Link, useNavigate } from 'react-router-dom';
 import { Thread } from '../types';
 import { storage } from '../utils/storage';
 import { ArrowLeft, Clock, User } from 'lucide-react';
@@ -9,14 +9,25 @@ const ThreadDetail: React.FC = () => {
     const { id } = useParams<{ id: string }>();
     const [thread, setThread] = useState<Thread | undefined>(undefined);
     const [loading, setLoading] = useState(true);
+    const [currentUser, setCurrentUser] = useState<{ username: string; role: 'user' | 'lt' } | null>(null);
+    const navigate = useNavigate();
 
     useEffect(() => {
         if (id) {
             const found = storage.getThreadById(id);
             setThread(found);
         }
+        setCurrentUser(storage.getUser());
         setLoading(false);
     }, [id]);
+
+    const handleDeleteThread = () => {
+        if (!thread) return;
+        if (window.confirm('Are you sure you want to delete this thread? This action cannot be undone.')) {
+            storage.deleteThread(thread.id);
+            navigate('/');
+        }
+    };
 
     if (loading) return <div className="text-center py-20 text-white/50">Loading...</div>;
 
@@ -31,10 +42,21 @@ const ThreadDetail: React.FC = () => {
 
     return (
         <div>
-            <Link to="/" className="inline-flex items-center gap-2 text-white/50 hover:text-white mb-6 transition-colors">
-                <ArrowLeft className="w-4 h-4" />
-                Back to Feed
-            </Link>
+            <div className="flex justify-between items-center mb-6">
+                <Link to="/" className="inline-flex items-center gap-2 text-white/50 hover:text-white transition-colors">
+                    <ArrowLeft className="w-4 h-4" />
+                    Back to Feed
+                </Link>
+
+                {currentUser?.role === 'lt' && (
+                    <button
+                        onClick={handleDeleteThread}
+                        className="text-red-500 hover:text-red-400 text-sm font-medium px-3 py-1.5 rounded-lg border border-red-500/20 hover:bg-red-500/10 transition-colors"
+                    >
+                        Delete Thread
+                    </button>
+                )}
+            </div>
 
             <article className="bg-white/5 border border-white/10 rounded-xl p-8 mb-8">
                 <div className="flex items-center gap-3 text-sm text-white/40 mb-4">

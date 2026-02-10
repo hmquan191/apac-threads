@@ -34,13 +34,14 @@ export const storage = {
         return data ? JSON.parse(data) : [];
     },
 
-    saveThread: (title: string, content: string): Thread => {
+    saveThread: (title: string, content: string, role: UserRole = 'user'): Thread => {
         const threads = storage.getThreads();
         const newThread: Thread = {
             id: generateId(),
             title,
             content,
-            author: 'Anonymous User', // Normal users are anonymous
+            author: role === 'lt' ? 'Leadership Team' : 'Anonymous User',
+            role,
             createdAt: Date.now(),
             commentsCount: 0,
         };
@@ -71,7 +72,8 @@ export const storage = {
             author: role === 'lt' ? 'Leadership Team' : 'Anonymous',
             role,
             createdAt: Date.now(),
-            parentId
+            parentId,
+            isPinned: false
         };
 
         localStorage.setItem(COMMENTS_KEY, JSON.stringify([...allComments, newComment]));
@@ -85,5 +87,73 @@ export const storage = {
         }
 
         return newComment;
+    },
+
+    deleteThread: (id: string) => {
+        // Delete thread
+        const threads = storage.getThreads();
+        const newThreads = threads.filter(t => t.id !== id);
+        localStorage.setItem(THREADS_KEY, JSON.stringify(newThreads));
+
+        // Delete associated comments
+        const data = localStorage.getItem(COMMENTS_KEY);
+        if (data) {
+            const allComments: Comment[] = JSON.parse(data);
+            const newComments = allComments.filter(c => c.threadId !== id);
+            localStorage.setItem(COMMENTS_KEY, JSON.stringify(newComments));
+        }
+    },
+
+    deleteComment: (id: string) => {
+        const data = localStorage.getItem(COMMENTS_KEY);
+        if (!data) return;
+
+        const allComments: Comment[] = JSON.parse(data);
+        const commentToDelete = allComments.find(c => c.id === id);
+
+        if (!commentToDelete) return;
+
+        // Recursive delete for children
+        const getIdsToDelete = (parentId: string): string[] => {
+            const children = allComments.filter(c => c.parentId === parentId);
+            let ids = [parentId];
+            children.forEach(child => {
+                ids = [...ids, ...getIdsToDelete(child.id)];
+            });
+            return ids;
+        };
+
+        const idsToDelete = getIdsToDelete(id);
+        const newComments = allComments.filter(c => !idsToDelete.includes(c.id));
+
+        localStorage.setItem(COMMENTS_KEY, JSON.stringify(newComments));
+
+        // Update thread comment count
+        const threads = storage.getThreads();
+        const threadIndex = threads.findIndex(t => t.id === commentToDelete.threadId);
+        if (threadIndex > -1) {
+            threads[threadIndex].commentsCount = Math.max(0, threads[threadIndex].commentsCount - idsToDelete.length);
+            localStorage.setItem(THREADS_KEY, JSON.stringify(threads));
+        }
+    },
+
+    pinComment: (threadId: string, commentId: string) => {
+        const data = localStorage.getItem(COMMENTS_KEY);
+        if (!data) return;
+
+        let allComments: Comment[] = JSON.parse(data);
+        const commentIndex = allComments.findIndex(c => c.id === commentId);
+
+        if (commentIndex > -1) {
+            // Unpin others in the same thread? Usually only one pinned, or multiple? 
+            // Let's assume multiple allowed for now, or just toggle.
+            // But typically pinning brings to top. 
+            // Let's just toggle for now. 
+
+            // Actually, if we want "Pin a comment", usually it implies one or few. 
+            // Let's just toggle isPinned.
+            allComments[commentIndex].isPinned = !allComments[commentIndex].isPinned;
+            localStorage.setItem(COMMENTS_KEY, JSON.stringify(allComments));
+        }
     }
 };

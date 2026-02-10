@@ -33,7 +33,7 @@ const ThreadList: React.FC<ThreadListProps> = ({ threads }) => {
                     <Link
                         key={thread.id}
                         to={`/thread/${thread.id}`}
-                        className="block p-5 rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 hover:border-white/20 transition-all group"
+                        className={`block p-5 rounded-xl border ${thread.role === 'lt' ? 'border-hnk-green bg-hnk-green/5' : 'border-white/10 bg-white/5'} hover:bg-white/10 hover:border-white/20 transition-all group`}
                     >
                         <div className="flex items-start justify-between">
                             <h3 className="text-lg font-semibold text-white group-hover:text-hnk-green transition-colors line-clamp-2 mb-2">
@@ -55,7 +55,9 @@ const ThreadList: React.FC<ThreadListProps> = ({ threads }) => {
                                 <span>{thread.commentsCount} answers</span>
                             </div>
                             <div className="w-1 h-1 rounded-full bg-white/20"></div>
-                            <span>Posted by {thread.author}</span>
+                            <span className={thread.role === 'lt' ? 'text-hnk-green font-bold' : ''}>
+                                Posted by {thread.author}
+                            </span>
                         </div>
                     </Link>
                 ))}
